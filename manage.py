@@ -6,7 +6,7 @@
 # @Software: PyCharm
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
-from info import db,create_app
+from info import db,create_app, models
 
 app = create_app('develop')
 
