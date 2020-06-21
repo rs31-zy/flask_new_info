@@ -13,6 +13,114 @@ import re
 
 
 
+#登陆功能
+@passport_blu.route('/login',methods=['POST'])
+def login():
+    '''
+    1. 获取参数
+    2. 校验
+    3. 通过手机号获取对象
+    4. 判断用户是否存在
+    5. 判断密码
+    6. 保存用户信息到session中
+    7. 返回响应
+    :return:
+    '''
+    mobile = request.json.get('mobile')
+    password = request.json.get('password')
+
+    if not all([mobile,password]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不全")
+    if not re.match('1[35789]\d{9}',mobile):
+        return jsonify(errno=RET.DATAERR,errmsg="手机号格式不正确")
+
+    try:
+        user = User.query.filter(User.mobile == mobile).first()
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="查询用户异常")
+
+    if not user:
+        return jsonify(errno=RET.NODATA, errmsg="该用户未注册")
+
+    if not user.check_passowrd(password):
+        return jsonify(errno=RET.DATAERR, errmsg="密码错误")
+
+    session['user_id'] = user.id
+    session['mobile'] = user.mobile
+    session['nick_name'] = user.nick_name
+    user.last_login = datetime.now()
+
+    current_app.logger.debug('登陆成功')
+
+
+    return jsonify(errno=RET.OK, errmsg="登陆成功")
+
+
+
+
+
+
+
+# 注册功能
+@passport_blu.route('/register',methods=['POST'])
+def register():
+    '''
+    1. 获取参数
+    2. 校验参数
+    3. 通过手机号码取出验证码
+    4. 判断验证码是否过期
+    5. 删除redis中的短信验证码
+    6. 判断验证码的正确性
+    7. 创建用户对象
+    8. 设置用户属性
+    9. 保存到数据库
+    10. 返回响应
+    :return:
+    '''
+    dict_data = request.json
+    mobile = dict_data.get('mobile')
+    sms_code = dict_data.get('sms_code')
+    password = dict_data.get('password')
+
+    if not all([mobile,sms_code,password]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不全")
+
+    try:
+        redis_sms_code = redis_store.get('sms_code:%s'%mobile)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="获取短信验证码异常")
+
+    if not redis_sms_code:
+        return jsonify(errno=RET.NODATA, errmsg="短信验证码已过期")
+
+    try:
+        redis_store.delete('sms_code:%s'%mobile)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR,errmsg="删除短信验证码异常")
+
+    if redis_sms_code != sms_code:
+        return jsonify(errno=RET.DATAERR, errmsg="短信验证码错误")
+
+    user = User()
+
+    user.nick_name = mobile
+    user.password = password
+    user.mobile = mobile
+    try:
+        db.session.add(user)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.DBERR,errmsg="用户注册失败")
+
+    return jsonify(errno=RET.OK, errmsg="用户注册成功")
+
+
+
 #功能描述: 发送短信
 # 请求路径: /passport/sms_code
 # 请求方式: POST
