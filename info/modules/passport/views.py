@@ -13,6 +13,24 @@ import re
 
 
 
+#退出
+@passport_blu.route('/logout',methods=['POST'])
+def logout():
+    '''
+    清除session中的用户信息
+    :return:
+    '''
+
+    session.pop('user_id',None)
+    session.pop('mobile',None)
+    session.pop('nick_name',None)
+
+    return jsonify(errno=RET.OK,errormsg='OK')
+
+
+
+
+
 #登陆功能
 @passport_blu.route('/login',methods=['POST'])
 def login():
