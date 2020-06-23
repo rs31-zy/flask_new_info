@@ -269,7 +269,7 @@ function sendSMSCode() {
         "mobile":mobile,
         "image_code":imageCode,
         "image_code_id":imageCodeId
-    }
+    };
 
     //发送获取短信请求
     $.ajax({
